@@ -82,6 +82,20 @@ var KilnBootnodes = []string{
 	"enode://b74bd2e8a9f0c53f0c93bcce80818f2f19439fd807af5c7fbc3efb10130c6ee08be8f3aaec7dc0a057ad7b2a809c8f34dc62431e9b6954b07a6548cc59867884@164.92.140.200:30303",
 }
 
+// ScrollAlphaBootnodes are the enode URLs of the P2P bootstrap nodes running on the Scroll Alpha test network.
+var ScrollAlphaBootnodes = []string{
+	"enode://996a655365e731321ca35636f5a62fdf37c0b75dc56a8832c472d077da5af47effe45874196268f6083b8f65e1a9589ed25015f68f47598c7bcc93ac8ea29e8a@35.85.116.190:30303",
+	"enode://a4e90d8108bbcd8b13066567c786f800812a9b6b3eeb92947e64edd19ac9231bf371da1a86796af2ccd7b7e781218ebbe2d04130d63f7b3f25d6372a706fc022@44.224.134.190:30303",
+	"enode://cf85bfa5828239b1f6b21758579ee8aaaba2a1fb4c658d6967c5f7ed4f040d95dee5b5cef0c77d656a191f6b0875dd03f05b30a3b2b3e15bfcf18b500d8f634c@35.155.117.77:30303",
+}
+
+// ScrollSepoliaBootnodes are the enode URLs of the P2P bootstrap nodes running on the Scroll Alpha test network.
+var ScrollSepoliaBootnodes = []string{
+	"enode://ceb1636bac5cbb262e5ad5b2cd22014bdb35ffe7f58b3506970d337a63099481814a338dbcd15f2d28757151e3ecd40ba38b41350b793cd0d910ff0436654f8c@35.85.84.250:30303",
+	"enode://29cee709c400533ae038a875b9ca975c8abef9eade956dcf3585e940acd5c0ae916968f514bd37d1278775aad1b7db30f7032a70202a87fd7365bd8de3c9f5fc@44.242.39.33:30303",
+	"enode://dd1ac5433c5c2b04ca3166f4cb726f8ff6d2da83dbc16d9b68b1ea83b7079b371eb16ef41c00441b6e85e32e33087f3b7753ea9e8b1e3f26d3e4df9208625e7f@54.148.111.168:30303",
+}
+
 var V5Bootnodes = []string{
 	// Teku team's bootnode
 	"enr:-KG4QOtcP9X1FbIMOe17QNMKqDxCpm14jcX5tiOE4_TyMrFqbmhPZHK_ZPG2Gxb1GE2xdtodOfx9-cgvNtxnRyHEmC0ghGV0aDKQ9aX9QgAAAAD__________4JpZIJ2NIJpcIQDE8KdiXNlY3AyNTZrMaEDhpehBDbZjM_L9ek699Y7vhUJ-eAdMyQW_Fil522Y0fODdGNwgiMog3VkcIIjKA",

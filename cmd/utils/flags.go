@@ -148,6 +148,14 @@ var (
 		Usage:    "Sepolia network: pre-configured proof-of-work test network",
 		Category: flags.EthCategory,
 	}
+	ScrollAlphaFlag = &cli.BoolFlag{
+		Name:  "scroll-alpha",
+		Usage: "Scroll Alpha test network",
+	}
+	ScrollSepoliaFlag = &cli.BoolFlag{
+		Name:  "scroll-sepolia",
+		Usage: "Scroll Sepolia test network",
+	}
 	KilnFlag = &cli.BoolFlag{
 		Name:     "kiln",
 		Usage:    "Kiln network: pre-configured proof-of-work to proof-of-stake test network",
@@ -228,7 +236,7 @@ var (
 	GCModeFlag = &cli.StringFlag{
 		Name:     "gcmode",
 		Usage:    `Blockchain garbage collection mode ("full", "archive")`,
-		Value:    "full",
+		Value:    "archive",
 		Category: flags.EthCategory,
 	}
 	SnapshotFlag = &cli.BoolFlag{
@@ -987,6 +995,8 @@ var (
 		GoerliFlag,
 		SepoliaFlag,
 		KilnFlag,
+		ScrollAlphaFlag,
+		ScrollSepoliaFlag,
 	}
 	// NetworkFlags is the flag group of all built-in supported networks.
 	NetworkFlags = append([]cli.Flag{
@@ -1022,6 +1032,12 @@ func MakeDataDir(ctx *cli.Context) string {
 		}
 		if ctx.Bool(KilnFlag.Name) {
 			return filepath.Join(path, "kiln")
+		}
+		if ctx.Bool(ScrollAlphaFlag.Name) {
+			return filepath.Join(path, "scroll-alpha")
+		}
+		if ctx.Bool(ScrollSepoliaFlag.Name) {
+			return filepath.Join(path, "scroll-sepolia")
 		}
 		return path
 	}
@@ -1079,6 +1095,10 @@ func setBootstrapNodes(ctx *cli.Context, cfg *p2p.Config) {
 		urls = params.GoerliBootnodes
 	case ctx.Bool(KilnFlag.Name):
 		urls = params.KilnBootnodes
+	case ctx.Bool(ScrollAlphaFlag.Name):
+		urls = params.ScrollAlphaBootnodes
+	case ctx.Bool(ScrollSepoliaFlag.Name):
+		urls = params.ScrollSepoliaBootnodes
 	}
 
 	// don't apply defaults if BootstrapNodes is already set
@@ -1537,6 +1557,11 @@ func SetDataDir(ctx *cli.Context, cfg *node.Config) {
 		cfg.DataDir = filepath.Join(node.DefaultDataDir(), "sepolia")
 	case ctx.Bool(KilnFlag.Name) && cfg.DataDir == node.DefaultDataDir():
 		cfg.DataDir = filepath.Join(node.DefaultDataDir(), "kiln")
+	case ctx.Bool(ScrollAlphaFlag.Name) && cfg.DataDir == node.DefaultDataDir():
+		cfg.DataDir = filepath.Join(node.DefaultDataDir(), "scroll-alpha")
+	case ctx.Bool(ScrollSepoliaFlag.Name) && cfg.DataDir == node.DefaultDataDir():
+		cfg.DataDir = filepath.Join(node.DefaultDataDir(), "scroll-sepolia")
+
 	}
 }
 
@@ -1727,7 +1752,7 @@ func CheckExclusive(ctx *cli.Context, args ...interface{}) {
 // SetEthConfig applies eth-related command line flags to the config.
 func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *ethconfig.Config) {
 	// Avoid conflicting network flags
-	CheckExclusive(ctx, MainnetFlag, DeveloperFlag, RopstenFlag, RinkebyFlag, GoerliFlag, SepoliaFlag, KilnFlag)
+	CheckExclusive(ctx, MainnetFlag, DeveloperFlag, RopstenFlag, RinkebyFlag, GoerliFlag, SepoliaFlag, KilnFlag, ScrollAlphaFlag, ScrollSepoliaFlag)
 	CheckExclusive(ctx, LightServeFlag, SyncModeFlag, "light")
 	CheckExclusive(ctx, DeveloperFlag, ExternalSignerFlag) // Can't use both ephemeral unlocked and external signer
 	if ctx.String(GCModeFlag.Name) == "archive" && ctx.Uint64(TxLookupLimitFlag.Name) != 0 {
@@ -1908,6 +1933,27 @@ func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *ethconfig.Config) {
 		}
 		cfg.Genesis = core.DefaultKilnGenesisBlock()
 		SetDNSDiscoveryDefaults(cfg, params.KilnGenesisHash)
+	case ctx.Bool(ScrollAlphaFlag.Name):
+		if !ctx.IsSet(NetworkIdFlag.Name) {
+			cfg.NetworkId = 534353
+		}
+		cfg.Genesis = core.DefaultScrollAlphaGenesisBlock()
+		// SetDNSDiscoveryDefaults(cfg, params.ScrollAlphaGenesisHash)
+	case ctx.Bool(ScrollSepoliaFlag.Name):
+		if !ctx.IsSet(NetworkIdFlag.Name) {
+			cfg.NetworkId = 534351
+		}
+		cfg.Genesis = core.DefaultScrollSepoliaGenesisBlock()
+		// forced for sepolia
+		// disable pruning
+		if ctx.String(GCModeFlag.Name) != "archive" {
+			log.Crit("Must use --gcmode=archive")
+		}
+		log.Info("Pruning disabled")
+		cfg.NoPruning = true
+		// disable prefetch
+		log.Info("Prefetch disabled")
+		cfg.NoPrefetch = true
 	case ctx.Bool(DeveloperFlag.Name):
 		if !ctx.IsSet(NetworkIdFlag.Name) {
 			cfg.NetworkId = 1337
@@ -2159,6 +2205,10 @@ func MakeGenesis(ctx *cli.Context) *core.Genesis {
 		genesis = core.DefaultGoerliGenesisBlock()
 	case ctx.Bool(KilnFlag.Name):
 		genesis = core.DefaultKilnGenesisBlock()
+	case ctx.Bool(ScrollAlphaFlag.Name):
+		genesis = core.DefaultScrollAlphaGenesisBlock()
+	case ctx.Bool(ScrollSepoliaFlag.Name):
+		genesis = core.DefaultScrollSepoliaGenesisBlock()
 	case ctx.Bool(DeveloperFlag.Name):
 		Fatalf("Developer chains are ephemeral")
 	}
