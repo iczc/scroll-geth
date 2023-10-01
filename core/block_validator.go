@@ -55,6 +55,15 @@ func (v *BlockValidator) ValidateBody(block *types.Block) error {
 		return ErrKnownBlock
 	}
 	// Header validity is known at this point, check the uncles and transactions
+
+	if !v.config.Scroll.IsValidTxCount(len(block.Transactions())) {
+		return consensus.ErrInvalidTxCount
+	}
+	// Check if block payload size is smaller than the max size
+	if !v.config.Scroll.IsValidBlockSize(block.PayloadSize()) {
+		return ErrInvalidBlockPayloadSize
+	}
+
 	header := block.Header()
 	if err := v.engine.VerifyUncles(v.bc, block); err != nil {
 		return err
