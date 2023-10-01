@@ -44,6 +44,8 @@ type (
 func (evm *EVM) precompile(addr common.Address) (PrecompiledContract, bool) {
 	var precompiles map[common.Address]PrecompiledContract
 	switch {
+	case evm.chainRules.IsArchimedes:
+		precompiles = PrecompiledContractsArchimedes
 	case evm.chainRules.IsBerlin:
 		precompiles = PrecompiledContractsBerlin
 	case evm.chainRules.IsIstanbul:
@@ -513,3 +515,8 @@ func (evm *EVM) Create2(caller ContractRef, code []byte, gas uint64, endowment *
 
 // ChainConfig returns the environment's chain configuration
 func (evm *EVM) ChainConfig() *params.ChainConfig { return evm.chainConfig }
+
+// FeeRecipient returns the environment's transaction fee recipient address.
+func (evm *EVM) FeeRecipient() common.Address {
+	return evm.Context.Coinbase
+}
