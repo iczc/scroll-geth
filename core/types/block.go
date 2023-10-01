@@ -87,6 +87,10 @@ type Header struct {
 	// BaseFee was added by EIP-1559 and is ignored in legacy headers.
 	BaseFee *big.Int `json:"baseFeePerGas" rlp:"optional"`
 
+	// WithdrawalsHash was added by EIP-4895 and is ignored in legacy headers.
+	// Included for Ethereum compatibility in Scroll SDK
+	WithdrawalsHash *common.Hash `json:"withdrawalsRoot" rlp:"optional"`
+
 	/*
 		TODO (MariusVanDerWijden) Add this field once needed
 		// Random was added during the merge and contains the BeaconState randomness
@@ -118,6 +122,18 @@ var headerSize = common.StorageSize(reflect.TypeOf(Header{}).Size())
 // to approximate and limit the memory consumption of various caches.
 func (h *Header) Size() common.StorageSize {
 	return headerSize + common.StorageSize(len(h.Extra)+(h.Difficulty.BitLen()+h.Number.BitLen())/8)
+}
+
+// PayloadSize returns the sum of all transactions in a block.
+func (b *Block) PayloadSize() common.StorageSize {
+	// add up all txs sizes
+	var totalSize common.StorageSize
+	for _, tx := range b.transactions {
+		if !tx.IsL1MessageTx() {
+			totalSize += tx.Size()
+		}
+	}
+	return totalSize
 }
 
 // SanityCheck checks a few basic things -- these checks are way beyond what
