@@ -32,6 +32,7 @@ import (
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
+	"github.com/ethereum/go-ethereum/rollup/fees"
 )
 
 const (
@@ -405,6 +406,13 @@ func (pool *TxPool) add(ctx context.Context, tx *types.Transaction) error {
 	if pool.pending[hash] != nil {
 		return fmt.Errorf("known transaction (%x)", hash[:4])
 	}
+
+	if pool.config.Scroll.FeeVaultEnabled() {
+		if err := fees.VerifyFee(pool.signer, tx, pool.currentState(ctx)); err != nil {
+			return err
+		}
+	}
+
 	err := pool.validateTx(ctx, tx)
 	if err != nil {
 		return err

@@ -229,6 +229,10 @@ func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *par
 	txLookupCache, _ := lru.New(txLookupCacheLimit)
 	futureBlocks, _ := lru.New(maxFutureBlocks)
 
+	if chainConfig.Scroll.FeeVaultEnabled() {
+		log.Warn("Using fee vault address", "FeeVaultAddress", *chainConfig.Scroll.FeeVaultAddress)
+	}
+
 	bc := &BlockChain{
 		chainConfig: chainConfig,
 		cacheConfig: cacheConfig,

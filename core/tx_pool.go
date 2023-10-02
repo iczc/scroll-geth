@@ -34,6 +34,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/metrics"
 	"github.com/ethereum/go-ethereum/params"
+	"github.com/ethereum/go-ethereum/rollup/fees"
 )
 
 const (
@@ -669,6 +670,14 @@ func (pool *TxPool) add(tx *types.Transaction, local bool) (replaced bool, err e
 	// Make the local flag. If it's from local source or it's from the network but
 	// the sender is marked as local previously, treat it as the local transaction.
 	isLocal := local || pool.locals.containsTx(tx)
+
+	if pool.chainconfig.Scroll.FeeVaultEnabled() {
+		if err := fees.VerifyFee(pool.signer, tx, pool.currentState); err != nil {
+			log.Trace("Discarding insufficient l1DataFee transaction", "hash", hash, "err", err)
+			invalidTxMeter.Mark(1)
+			return false, err
+		}
+	}
 
 	// If the transaction fails basic validation, discard it
 	if err := pool.validateTx(tx, isLocal); err != nil {
@@ -1308,8 +1317,8 @@ func (pool *TxPool) reset(oldHead, newHead *types.Header) {
 	// Update all fork indicator by next pending block number.
 	next := new(big.Int).Add(newHead.Number, big.NewInt(1))
 	pool.istanbul = pool.chainconfig.IsIstanbul(next)
-	pool.eip2718 = pool.chainconfig.IsBerlin(next)
-	pool.eip1559 = pool.chainconfig.IsLondon(next)
+	pool.eip2718 = pool.chainconfig.Scroll.EnableEIP2718 && pool.chainconfig.IsBerlin(next)
+	pool.eip1559 = pool.chainconfig.Scroll.EnableEIP1559 && pool.chainconfig.IsLondon(next)
 	pool.shanghai = pool.chainconfig.IsShanghai(next)
 }
 

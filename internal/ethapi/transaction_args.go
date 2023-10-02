@@ -180,14 +180,20 @@ func (args *TransactionArgs) setLondonFeeDefaults(ctx context.Context, head *typ
 	}
 	// Set maxFeePerGas if it is missing.
 	if args.MaxFeePerGas == nil {
-		// Set the max fee to be 2 times larger than the previous block's base fee.
-		// The additional slack allows the tx to not become invalidated if the base
-		// fee is rising.
-		val := new(big.Int).Add(
-			args.MaxPriorityFeePerGas.ToInt(),
-			new(big.Int).Mul(head.BaseFee, big.NewInt(2)),
-		)
-		args.MaxFeePerGas = (*hexutil.Big)(val)
+		var gasFeeCap *big.Int
+		if head.BaseFee != nil {
+			// Set the max fee to be 2 times larger than the previous block's base fee.
+			// The additional slack allows the tx to not become invalidated if the base
+			// fee is rising.
+			gasFeeCap = new(big.Int).Add(
+				args.MaxPriorityFeePerGas.ToInt(),
+				new(big.Int).Mul(head.BaseFee, big.NewInt(2)),
+			)
+		} else {
+			gasFeeCap = new(big.Int).Set(
+				(*big.Int)(args.MaxPriorityFeePerGas))
+		}
+		args.MaxFeePerGas = (*hexutil.Big)(gasFeeCap)
 	}
 	// Both EIP-1559 fee parameters are now set; sanity check them.
 	if args.MaxFeePerGas.ToInt().Cmp(args.MaxPriorityFeePerGas.ToInt()) < 0 {
