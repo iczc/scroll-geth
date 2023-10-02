@@ -36,6 +36,7 @@ import (
 	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/ethereum/go-ethereum/rollup/fees"
 	"github.com/ethereum/go-ethereum/trie"
 )
 
@@ -196,10 +197,12 @@ func odrContractCall(ctx context.Context, db ethdb.Database, bc *core.BlockChain
 		st.SetBalance(testBankAddress, math.MaxBig256)
 		msg := callmsg{types.NewMessage(testBankAddress, &testContractAddr, 0, new(big.Int), 1000000, big.NewInt(params.InitialBaseFee), big.NewInt(params.InitialBaseFee), new(big.Int), data, nil, true)}
 		txContext := core.NewEVMTxContext(msg)
-		context := core.NewEVMBlockContext(header, chain, nil)
+		context := core.NewEVMBlockContext(header, chain, config, nil)
 		vmenv := vm.NewEVM(context, txContext, st, config, vm.Config{NoBaseFee: true})
 		gp := new(core.GasPool).AddGas(math.MaxUint64)
-		result, _ := core.ApplyMessage(vmenv, msg, gp)
+		signer := types.MakeSigner(config, header.Number)
+		l1DataFee, _ := fees.EstimateL1DataFeeForMessage(msg, header.BaseFee, config.ChainID, signer, st)
+		result, _ := core.ApplyMessage(vmenv, msg, gp, l1DataFee)
 		res = append(res, result.Return()...)
 		if st.Error() != nil {
 			return res, st.Error()

@@ -45,6 +45,7 @@ import (
 	"github.com/ethereum/go-ethereum/p2p"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/ethereum/go-ethereum/rollup/fees"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/tyler-smith/go-bip39"
 )
@@ -844,11 +845,12 @@ func (s *PublicBlockChainAPI) GetStorageAt(ctx context.Context, address common.A
 // if statDiff is set, all diff will be applied first and then execute the call
 // message.
 type OverrideAccount struct {
-	Nonce     *hexutil.Uint64              `json:"nonce"`
-	Code      *hexutil.Bytes               `json:"code"`
-	Balance   **hexutil.Big                `json:"balance"`
-	State     *map[common.Hash]common.Hash `json:"state"`
-	StateDiff *map[common.Hash]common.Hash `json:"stateDiff"`
+	Nonce      *hexutil.Uint64              `json:"nonce"`
+	Code       *hexutil.Bytes               `json:"code"`
+	Balance    **hexutil.Big                `json:"balance"`
+	BalanceAdd **hexutil.Big                `json:"balanceAdd"`
+	State      *map[common.Hash]common.Hash `json:"state"`
+	StateDiff  *map[common.Hash]common.Hash `json:"stateDiff"`
 }
 
 // StateOverride is the collection of overridden accounts.
@@ -869,8 +871,15 @@ func (diff *StateOverride) Apply(state *state.StateDB) error {
 			state.SetCode(addr, *account.Code)
 		}
 		// Override account balance.
+		if account.Balance != nil && account.BalanceAdd != nil {
+			return fmt.Errorf("account %s has both 'balance' and 'balanceAdd'", addr.Hex())
+		}
 		if account.Balance != nil {
 			state.SetBalance(addr, (*big.Int)(*account.Balance))
+		}
+		if account.BalanceAdd != nil {
+			balance := big.NewInt(0).Add(state.GetBalance(addr), (*big.Int)(*account.BalanceAdd))
+			state.SetBalance(addr, balance)
 		}
 		if account.State != nil && account.StateDiff != nil {
 			return fmt.Errorf("account %s has both 'state' and 'stateDiff'", addr.Hex())
@@ -887,6 +896,55 @@ func (diff *StateOverride) Apply(state *state.StateDB) error {
 		}
 	}
 	return nil
+}
+
+func newRPCBalance(balance *big.Int) **hexutil.Big {
+	rpcBalance := (*hexutil.Big)(balance)
+	return &rpcBalance
+}
+
+func EstimateL1MsgFee(ctx context.Context, b Backend, args TransactionArgs, blockNrOrHash rpc.BlockNumberOrHash, overrides *StateOverride, timeout time.Duration, globalGasCap uint64, config *params.ChainConfig) (*big.Int, error) {
+	if !config.Scroll.FeeVaultEnabled() {
+		return big.NewInt(0), nil
+	}
+
+	state, header, err := b.StateAndHeaderByNumberOrHash(ctx, blockNrOrHash)
+	if state == nil || err != nil {
+		return nil, err
+	}
+	if err := overrides.Apply(state); err != nil {
+		return nil, err
+	}
+	// Setup context so it may be cancelled the call has completed
+	// or, in case of unmetered gas, setup a context with a timeout.
+	var cancel context.CancelFunc
+	if timeout > 0 {
+		ctx, cancel = context.WithTimeout(ctx, timeout)
+	} else {
+		ctx, cancel = context.WithCancel(ctx)
+	}
+	// Make sure the context is cancelled when the call has completed
+	// this makes sure resources are cleaned up.
+	defer cancel()
+
+	// Get a new instance of the EVM.
+	msg, err := args.ToMessage(globalGasCap, header.BaseFee)
+	if err != nil {
+		return nil, err
+	}
+	evm, _, err := b.GetEVM(ctx, msg, state, header, &vm.Config{NoBaseFee: true})
+	if err != nil {
+		return nil, err
+	}
+	// Wait for the context to be done and cancel the evm. Even if the
+	// EVM has finished, cancelling may be done (repeatedly)
+	go func() {
+		<-ctx.Done()
+		evm.Cancel()
+	}()
+
+	signer := types.MakeSigner(config, header.Number)
+	return fees.EstimateL1DataFeeForMessage(msg, header.BaseFee, config.ChainID, signer, evm.StateDB)
 }
 
 func DoCall(ctx context.Context, b Backend, args TransactionArgs, blockNrOrHash rpc.BlockNumberOrHash, overrides *StateOverride, timeout time.Duration, globalGasCap uint64) (*core.ExecutionResult, error) {
@@ -929,7 +987,13 @@ func DoCall(ctx context.Context, b Backend, args TransactionArgs, blockNrOrHash 
 
 	// Execute the message.
 	gp := new(core.GasPool).AddGas(math.MaxUint64)
-	result, err := core.ApplyMessage(evm, msg, gp)
+	signer := types.MakeSigner(b.ChainConfig(), header.Number)
+	l1DataFee, err := fees.EstimateL1DataFeeForMessage(msg, header.BaseFee, b.ChainConfig().ChainID, signer, state)
+	if err != nil {
+		return nil, err
+	}
+
+	result, err := core.ApplyMessage(evm, msg, gp, l1DataFee)
 	if err := vmError(); err != nil {
 		return nil, err
 	}
@@ -981,6 +1045,26 @@ func (e *revertError) ErrorData() interface{} {
 // Note, this function doesn't make and changes in the state/blockchain and is
 // useful to execute and retrieve values.
 func (s *PublicBlockChainAPI) Call(ctx context.Context, args TransactionArgs, blockNrOrHash rpc.BlockNumberOrHash, overrides *StateOverride) (hexutil.Bytes, error) {
+	// If gasPrice is 0 and no state override is set, make sure
+	// that the account has sufficient balance to cover `l1DataFee`.
+	isGasPriceZero := args.GasPrice == nil || args.GasPrice.ToInt().Cmp(big.NewInt(0)) == 0
+
+	if overrides == nil {
+		overrides = &StateOverride{}
+	}
+	_, isOverrideSet := (*overrides)[args.from()]
+
+	if isGasPriceZero && !isOverrideSet {
+		l1DataFee, err := EstimateL1MsgFee(ctx, s.b, args, blockNrOrHash, overrides, s.b.RPCEVMTimeout(), s.b.RPCGasCap(), s.b.ChainConfig())
+		if err != nil {
+			return nil, err
+		}
+
+		(*overrides)[args.from()] = OverrideAccount{
+			BalanceAdd: newRPCBalance(l1DataFee),
+		}
+	}
+
 	result, err := DoCall(ctx, s.b, args, blockNrOrHash, overrides, s.b.RPCEVMTimeout(), s.b.RPCGasCap())
 	if err != nil {
 		return nil, err
@@ -1036,12 +1120,25 @@ func DoEstimateGas(ctx context.Context, b Backend, args TransactionArgs, blockNr
 		}
 		balance := state.GetBalance(*args.From) // from can't be nil
 		available := new(big.Int).Set(balance)
+
+		// account for tx value
 		if args.Value != nil {
 			if args.Value.ToInt().Cmp(available) >= 0 {
 				return 0, errors.New("insufficient funds for transfer")
 			}
 			available.Sub(available, args.Value.ToInt())
 		}
+
+		// account for l1 fee
+		l1DataFee, err := EstimateL1MsgFee(ctx, b, args, blockNrOrHash, nil, 0, gasCap, b.ChainConfig())
+		if err != nil {
+			return 0, err
+		}
+		if l1DataFee.Cmp(available) >= 0 {
+			return 0, errors.New("insufficient funds for l1 fee")
+		}
+		available.Sub(available, l1DataFee)
+
 		allowance := new(big.Int).Div(available, feeCap)
 
 		// If the allowance is larger than maximum uint64, skip checking
@@ -1130,6 +1227,7 @@ type ExecutionResult struct {
 	Failed      bool           `json:"failed"`
 	ReturnValue string         `json:"returnValue"`
 	StructLogs  []StructLogRes `json:"structLogs"`
+	L1DataFee   *big.Int       `json:"l1DataFee"`
 }
 
 // StructLogRes stores a structured log emitted by the EVM while replaying a
@@ -1184,7 +1282,7 @@ func FormatLogs(logs []logger.StructLog) []StructLogRes {
 }
 
 // RPCMarshalHeader converts the given header to the RPC output .
-func RPCMarshalHeader(head *types.Header) map[string]interface{} {
+func RPCMarshalHeader(head *types.Header, enableBaseFee bool) map[string]interface{} {
 	result := map[string]interface{}{
 		"number":           (*hexutil.Big)(head.Number),
 		"hash":             head.Hash(),
@@ -1205,7 +1303,7 @@ func RPCMarshalHeader(head *types.Header) map[string]interface{} {
 		"receiptsRoot":     head.ReceiptHash,
 	}
 
-	if head.BaseFee != nil {
+	if enableBaseFee && head.BaseFee != nil {
 		result["baseFeePerGas"] = (*hexutil.Big)(head.BaseFee)
 	}
 
@@ -1216,7 +1314,7 @@ func RPCMarshalHeader(head *types.Header) map[string]interface{} {
 // returned. When fullTx is true the returned block contains full transaction details, otherwise it will only contain
 // transaction hashes.
 func RPCMarshalBlock(block *types.Block, inclTx bool, fullTx bool, config *params.ChainConfig) (map[string]interface{}, error) {
-	fields := RPCMarshalHeader(block.Header())
+	fields := RPCMarshalHeader(block.Header(), config.Scroll.BaseFeeEnabled())
 	fields["size"] = hexutil.Uint64(block.Size())
 
 	if inclTx {
@@ -1251,7 +1349,7 @@ func RPCMarshalBlock(block *types.Block, inclTx bool, fullTx bool, config *param
 // rpcMarshalHeader uses the generalized output filler, then adds the total difficulty field, which requires
 // a `PublicBlockchainAPI`.
 func (s *PublicBlockChainAPI) rpcMarshalHeader(ctx context.Context, header *types.Header) map[string]interface{} {
-	fields := RPCMarshalHeader(header)
+	fields := RPCMarshalHeader(header, s.b.ChainConfig().Scroll.BaseFeeEnabled())
 	fields["totalDifficulty"] = (*hexutil.Big)(s.b.GetTd(ctx, header.Hash()))
 	return fields
 }
@@ -1290,6 +1388,10 @@ type RPCTransaction struct {
 	V                *hexutil.Big      `json:"v"`
 	R                *hexutil.Big      `json:"r"`
 	S                *hexutil.Big      `json:"s"`
+
+	// L1 message transaction fields:
+	Sender     common.Address  `json:"sender,omitempty"`
+	QueueIndex *hexutil.Uint64 `json:"queueIndex,omitempty"`
 }
 
 // newRPCTransaction returns a transaction that will serialize to the RPC
@@ -1336,6 +1438,10 @@ func newRPCTransaction(tx *types.Transaction, blockHash common.Hash, blockNumber
 		} else {
 			result.GasPrice = (*hexutil.Big)(tx.GasFeeCap())
 		}
+	case types.L1MessageTxType:
+		msg := tx.AsL1MessageTx()
+		result.Sender = msg.Sender
+		result.QueueIndex = (*hexutil.Uint64)(&msg.QueueIndex)
 	}
 	return result
 }
@@ -1469,7 +1575,12 @@ func AccessList(ctx context.Context, b Backend, blockNrOrHash rpc.BlockNumberOrH
 		if err != nil {
 			return nil, 0, nil, err
 		}
-		res, err := core.ApplyMessage(vmenv, msg, new(core.GasPool).AddGas(msg.Gas()))
+		signer := types.MakeSigner(b.ChainConfig(), header.Number)
+		l1DataFee, err := fees.EstimateL1DataFeeForMessage(msg, header.BaseFee, b.ChainConfig().ChainID, signer, statedb)
+		if err != nil {
+			return nil, 0, nil, fmt.Errorf("failed to apply transaction: %v err: %v", args.toTransaction().Hash(), err)
+		}
+		res, err := core.ApplyMessage(vmenv, msg, new(core.GasPool).AddGas(msg.Gas()), l1DataFee)
 		if err != nil {
 			return nil, 0, nil, fmt.Errorf("failed to apply transaction: %v err: %v", args.toTransaction().Hash(), err)
 		}
@@ -1637,6 +1748,7 @@ func (s *PublicTransactionPoolAPI) GetTransactionReceipt(ctx context.Context, ha
 		"logs":              receipt.Logs,
 		"logsBloom":         receipt.Bloom,
 		"type":              hexutil.Uint(tx.Type()),
+		"l1Fee":             (*hexutil.Big)(receipt.L1Fee),
 	}
 	// Assign the effective gas price paid
 	if !s.b.ChainConfig().IsLondon(bigblock) {
@@ -1646,7 +1758,13 @@ func (s *PublicTransactionPoolAPI) GetTransactionReceipt(ctx context.Context, ha
 		if err != nil {
 			return nil, err
 		}
-		gasPrice := new(big.Int).Add(header.BaseFee, tx.EffectiveGasTipValue(header.BaseFee))
+
+		baseFee := header.BaseFee
+		if baseFee == nil {
+			baseFee = big.NewInt(0)
+		}
+
+		gasPrice := new(big.Int).Add(baseFee, tx.EffectiveGasTipValue(header.BaseFee))
 		fields["effectiveGasPrice"] = hexutil.Uint64(gasPrice.Uint64())
 	}
 	// Assign receipt status or post state.

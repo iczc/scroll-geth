@@ -37,6 +37,7 @@ import (
 	"github.com/ethereum/go-ethereum/eth/tracers"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/ethereum/go-ethereum/rollup/fees"
 	"github.com/ethereum/go-ethereum/tests"
 
 	// Force-load native and js pacakges, to trigger registration
@@ -188,7 +189,11 @@ func testCallTracer(tracerName string, dirPath string, t *testing.T) {
 			if err != nil {
 				t.Fatalf("failed to prepare transaction for tracing: %v", err)
 			}
-			st := core.NewStateTransition(evm, msg, new(core.GasPool).AddGas(tx.Gas()))
+			l1DataFee, err := fees.CalculateL1DataFee(tx, statedb)
+			if err != nil {
+				t.Fatal(err)
+			}
+			st := core.NewStateTransition(evm, msg, new(core.GasPool).AddGas(tx.Gas()), l1DataFee)
 			if _, err = st.TransitionDb(); err != nil {
 				t.Fatalf("failed to execute transaction: %v", err)
 			}
@@ -299,7 +304,11 @@ func benchTracer(tracerName string, test *callTracerTest, b *testing.B) {
 		}
 		evm := vm.NewEVM(context, txContext, statedb, test.Genesis.Config, vm.Config{Debug: true, Tracer: tracer})
 		snap := statedb.Snapshot()
-		st := core.NewStateTransition(evm, msg, new(core.GasPool).AddGas(tx.Gas()))
+		l1DataFee, err := fees.CalculateL1DataFee(tx, statedb)
+		if err != nil {
+			b.Fatal(err)
+		}
+		st := core.NewStateTransition(evm, msg, new(core.GasPool).AddGas(tx.Gas()), l1DataFee)
 		if _, err = st.TransitionDb(); err != nil {
 			b.Fatalf("failed to execute transaction: %v", err)
 		}
@@ -368,7 +377,11 @@ func TestZeroValueToNotExitCall(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to prepare transaction for tracing: %v", err)
 	}
-	st := core.NewStateTransition(evm, msg, new(core.GasPool).AddGas(tx.Gas()))
+	l1DataFee, err := fees.CalculateL1DataFee(tx, statedb)
+	if err != nil {
+		t.Fatal(err)
+	}
+	st := core.NewStateTransition(evm, msg, new(core.GasPool).AddGas(tx.Gas()), l1DataFee)
 	if _, err = st.TransitionDb(); err != nil {
 		t.Fatalf("failed to execute transaction: %v", err)
 	}

@@ -19,10 +19,10 @@ package params
 import (
 	"encoding/binary"
 	"fmt"
-	"github.com/ethereum/go-ethereum/rollup/rcfg"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/rollup/rcfg"
 	"golang.org/x/crypto/sha3"
 )
 
@@ -411,6 +411,17 @@ var (
 		L1Config:                  &L1Config{5, common.HexToAddress("0x0000000000000000000000000000000000000000"), 0},
 	}}
 	TestRules = TestChainConfig.Rules(new(big.Int), false)
+
+	TestNoL1DataFeeChainConfig = &ChainConfig{big.NewInt(1), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, big.NewInt(0), nil, nil, new(EthashConfig), nil,
+		ScrollConfig{
+			UseZktrie:                 false,
+			FeeVaultAddress:           nil,
+			EnableEIP2718:             true,
+			EnableEIP1559:             true,
+			MaxTxPerBlock:             nil,
+			MaxTxPayloadBytesPerBlock: nil,
+			L1Config:                  &L1Config{5, common.HexToAddress("0x0000000000000000000000000000000000000000"), 0},
+		}}
 )
 
 // TrustedCheckpoint represents a set of post-processed trie roots (CHT and
