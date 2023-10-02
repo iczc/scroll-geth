@@ -104,7 +104,7 @@ func (ga *GenesisAlloc) deriveHash() (common.Hash, error) {
 // all the generated states will be persisted into the given database.
 // Also, the genesis state specification will be flushed as well.
 func (ga *GenesisAlloc) flush(db ethdb.Database) error {
-	statedb, err := state.New(common.Hash{}, state.NewDatabaseWithConfig(db, &trie.Config{Preimages: true}), nil)
+	statedb, err := state.New(common.Hash{}, state.NewDatabaseWithConfig(db, &trie.Config{Preimages: true, Zktrie: true}), nil)
 	if err != nil {
 		return err
 	}
@@ -160,6 +160,10 @@ func CommitGenesisState(db ethdb.Database, hash common.Hash) error {
 			genesis = DefaultGoerliGenesisBlock()
 		case params.SepoliaGenesisHash:
 			genesis = DefaultSepoliaGenesisBlock()
+		case params.ScrollAlphaGenesisHash:
+			genesis = DefaultScrollAlphaGenesisBlock()
+		case params.ScrollSepoliaGenesisHash:
+			genesis = DefaultScrollSepoliaGenesisBlock()
 		}
 		if genesis != nil {
 			alloc = genesis.Alloc
@@ -283,7 +287,21 @@ func SetupGenesisBlockWithOverride(db ethdb.Database, genesis *Genesis, override
 	// We have the genesis block in database(perhaps in ancient database)
 	// but the corresponding state is missing.
 	header := rawdb.ReadHeader(db, stored, 0)
-	if _, err := state.New(header.Root, state.NewDatabaseWithConfig(db, nil), nil); err != nil {
+
+	var trieCfg *trie.Config
+
+	if genesis == nil {
+		storedcfg := rawdb.ReadChainConfig(db, stored)
+		if storedcfg == nil {
+			log.Warn("Found genesis block without chain config")
+		} else {
+			trieCfg = &trie.Config{Zktrie: storedcfg.Scroll.ZktrieEnabled()}
+		}
+	} else {
+		trieCfg = &trie.Config{Zktrie: genesis.Config.Scroll.ZktrieEnabled()}
+	}
+
+	if _, err := state.New(header.Root, state.NewDatabaseWithConfig(db, trieCfg), nil); err != nil {
 		if genesis == nil {
 			genesis = DefaultGenesisBlock()
 		}
@@ -389,10 +407,14 @@ func (g *Genesis) ToBlock() *types.Block {
 		head.Difficulty = params.GenesisDifficulty
 	}
 	if g.Config != nil && g.Config.IsLondon(common.Big0) {
-		if g.BaseFee != nil {
-			head.BaseFee = g.BaseFee
-		} else {
-			head.BaseFee = new(big.Int).SetUint64(params.InitialBaseFee)
+		if g.Config != nil && g.Config.IsLondon(common.Big0) {
+			if g.BaseFee != nil {
+				head.BaseFee = g.BaseFee
+			} else if g.Config.Scroll.BaseFeeEnabled() {
+				head.BaseFee = new(big.Int).SetUint64(params.InitialBaseFee)
+			} else {
+				head.BaseFee = nil
+			}
 		}
 	}
 	return types.NewBlock(head, nil, nil, nil, trie.NewStackTrie(nil))

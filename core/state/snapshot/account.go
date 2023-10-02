@@ -76,7 +76,7 @@ func FullAccount(data []byte) (Account, error) {
 	}
 	if len(account.CodeHash) == 0 {
 		account.CodeHash = emptyCode[:]
-		//account.PoseidonCodeHash = emptyPoseidonCode[:]
+		account.PoseidonCodeHash = emptyPoseidonCode[:]
 		account.CodeSize = 0
 	}
 	return account, nil

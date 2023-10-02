@@ -69,6 +69,20 @@ func (t *ZkTrie) Get(key []byte) []byte {
 	return res
 }
 
+func (t *ZkTrie) TryGetAccount(key []byte) (*types.StateAccount, error) {
+	sanityCheckByte32Key(key)
+	enc, err := t.ZkTrie.TryGet(key)
+	if err != nil {
+		return nil, err
+	}
+	return types.UnmarshalStateAccount(enc)
+}
+
+func (t *ZkTrie) TryDeleteAccount(key []byte) error {
+	sanityCheckByte32Key(key)
+	return t.TryDelete(key)
+}
+
 // TryUpdateAccount will abstract the write of an account to the
 // secure trie.
 func (t *ZkTrie) TryUpdateAccount(key []byte, acc *types.StateAccount) error {
@@ -123,10 +137,10 @@ func (t *ZkTrie) GetKey(kHashBytes []byte) []byte {
 //
 // Committing flushes nodes from memory. Subsequent Get calls will load nodes
 // from the database.
-func (t *ZkTrie) Commit(LeafCallback) (common.Hash, int, error) {
+func (t *ZkTrie) Commit(collectLeaf bool) (common.Hash, *NodeSet, error) {
 	// in current implmentation, every update of trie already writes into database
 	// so Commmit does nothing
-	return t.Hash(), 0, nil
+	return t.Hash(), nil, nil
 }
 
 // Hash returns the root hash of SecureBinaryTrie. It does not write to the
