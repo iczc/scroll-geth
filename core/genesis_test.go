@@ -40,7 +40,7 @@ func TestInvalidCliqueConfig(t *testing.T) {
 
 func TestSetupGenesis(t *testing.T) {
 	var (
-		customghash = common.HexToHash("0x4cb2a3c401c1e9a961509b7d8e086528652fba136f9017885cad5909d07d61b8")
+		customghash = common.HexToHash("0x700380ab70d789c462c4e8f0db082842095321f390d0a3f25f400f0746db32bc")
 		customg     = Genesis{
 			Config: &params.ChainConfig{HomesteadBlock: big.NewInt(3)},
 			Alloc: GenesisAlloc{
@@ -172,6 +172,7 @@ func TestGenesisHashes(t *testing.T) {
 		//{DefaultRopstenGenesisBlock(), params.RopstenGenesisHash},
 		//{DefaultRinkebyGenesisBlock(), params.RinkebyGenesisHash},
 		//{DefaultSepoliaGenesisBlock(), params.SepoliaGenesisHash},
+		{DefaultScrollSepoliaGenesisBlock(), params.ScrollSepoliaGenesisHash},
 	} {
 		// Test via MustCommit
 		if have := c.genesis.MustCommit(rawdb.NewMemoryDatabase()).Hash(); have != c.want {
