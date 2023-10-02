@@ -68,6 +68,11 @@ var (
 // behind this split design is to provide read access to RPC handlers and sync
 // servers even while the trie is executing expensive garbage collection.
 type Database struct {
+	// zktrie related stuff
+	Zktrie bool
+	// TODO: It's a quick&dirty implementation. FIXME later.
+	rawDirties KvMap
+
 	diskdb ethdb.KeyValueStore // Persistent storage for matured trie nodes
 
 	cleans  *fastcache.Cache            // GC friendly memory cache of clean node RLPs
@@ -268,6 +273,7 @@ type Config struct {
 	Cache     int    // Memory allowance (MB) to use for caching trie nodes in memory
 	Journal   string // Journal of clean cache to survive node restarts
 	Preimages bool   // Flag whether the preimage of trie key is recorded
+	Zktrie    bool   // use zktrie
 }
 
 // NewDatabase creates a new trie database to store ephemeral trie content before
@@ -299,7 +305,8 @@ func NewDatabaseWithConfig(diskdb ethdb.KeyValueStore, config *Config) *Database
 		dirties: map[common.Hash]*cachedNode{{}: {
 			children: make(map[common.Hash]uint16),
 		}},
-		preimages: preimage,
+		rawDirties: make(KvMap),
+		preimages:  preimage,
 	}
 	return db
 }
@@ -643,6 +650,23 @@ func (db *Database) Commit(node common.Hash, report bool, callback func(common.H
 	start := time.Now()
 	batch := db.diskdb.NewBatch()
 
+	db.lock.Lock()
+	for _, v := range db.rawDirties {
+		batch.Put(v.K, v.V)
+	}
+	for k := range db.rawDirties {
+		delete(db.rawDirties, k)
+	}
+	db.lock.Unlock()
+	if err := batch.Write(); err != nil {
+		return err
+	}
+	batch.Reset()
+
+	if (node == common.Hash{}) {
+		return nil
+	}
+
 	// Move all of the accumulated preimages into a write batch
 	if db.preimages != nil {
 		db.preimages.commit(true)
@@ -885,4 +909,14 @@ func (db *Database) CommitPreimages() error {
 		return nil
 	}
 	return db.preimages.commit(true)
+}
+
+// EmptyRoot indicate what root is for an empty trie, it depends on its underlying implement (zktrie or common trie)
+func (db *Database) EmptyRoot() common.Hash {
+
+	if db.Zktrie {
+		return common.Hash{}
+	} else {
+		return emptyRoot
+	}
 }

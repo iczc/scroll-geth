@@ -18,6 +18,7 @@ package les
 
 import (
 	"crypto/ecdsa"
+	"errors"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common/mclock"
@@ -77,6 +78,10 @@ type LesServer struct {
 }
 
 func NewLesServer(node *node.Node, e ethBackend, config *ethconfig.Config) (*LesServer, error) {
+	// Now disable for zktrie
+	if e.BlockChain().Config().Scroll.ZktrieEnabled() {
+		return nil, errors.New("light server not work with zktrie storage")
+	}
 	lesDb, err := node.OpenDatabase("les.server", 0, 0, "eth/db/lesserver/", false)
 	if err != nil {
 		return nil, err
