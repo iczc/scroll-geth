@@ -19,6 +19,7 @@ package types
 import (
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"math/big"
 
 	"github.com/iden3/go-iden3-crypto/utils"
@@ -84,6 +85,7 @@ func (s *StateAccount) MarshalFields() ([]zkt.Byte32, uint32) {
 }
 
 func UnmarshalStateAccount(bytes []byte) (*StateAccount, error) {
+	fmt.Println(len(bytes))
 	if len(bytes) != 160 {
 		return nil, ErrInvalidLength
 	}

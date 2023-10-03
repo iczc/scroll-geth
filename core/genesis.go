@@ -104,7 +104,7 @@ func (ga *GenesisAlloc) deriveHash() (common.Hash, error) {
 // all the generated states will be persisted into the given database.
 // Also, the genesis state specification will be flushed as well.
 func (ga *GenesisAlloc) flush(db ethdb.Database) error {
-	statedb, err := state.New(common.Hash{}, state.NewDatabaseWithConfig(db, &trie.Config{Preimages: true, Zktrie: true}), nil)
+	statedb, err := state.New(common.Hash{}, state.NewDatabaseWithConfig(db, &trie.Config{Preimages: true}), nil)
 	if err != nil {
 		return err
 	}
@@ -306,7 +306,7 @@ func SetupGenesisBlockWithOverride(db ethdb.Database, genesis *Genesis, override
 			genesis = DefaultGenesisBlock()
 		}
 		// Ensure the stored genesis matches with the given one.
-		hash := genesis.ToBlock().Hash()
+		hash := genesis.ToBlock(nil).Hash()
 		if hash != stored {
 			return genesis.Config, hash, &GenesisMismatchError{stored, hash}
 		}
@@ -319,7 +319,7 @@ func SetupGenesisBlockWithOverride(db ethdb.Database, genesis *Genesis, override
 	}
 	// Check whether the genesis block is already written.
 	if genesis != nil {
-		hash := genesis.ToBlock().Hash()
+		hash := genesis.ToBlock(nil).Hash()
 		if hash != stored {
 			return genesis.Config, hash, &GenesisMismatchError{stored, hash}
 		}
@@ -380,12 +380,27 @@ func (g *Genesis) configOrDefault(ghash common.Hash) *params.ChainConfig {
 	}
 }
 
-// ToBlock returns the genesis block according to genesis specification.
-func (g *Genesis) ToBlock() *types.Block {
-	root, err := g.Alloc.deriveHash()
+func (g *Genesis) ToBlock(db ethdb.Database) *types.Block {
+	if db == nil {
+		db = rawdb.NewMemoryDatabase()
+	}
+	var trieCfg *trie.Config
+	if g.Config != nil {
+		trieCfg = &trie.Config{Zktrie: g.Config.Scroll.ZktrieEnabled()}
+	}
+	statedb, err := state.New(common.Hash{}, state.NewDatabaseWithConfig(db, trieCfg), nil)
 	if err != nil {
 		panic(err)
 	}
+	for addr, account := range g.Alloc {
+		statedb.AddBalance(addr, account.Balance)
+		statedb.SetCode(addr, account.Code)
+		statedb.SetNonce(addr, account.Nonce)
+		for key, value := range account.Storage {
+			statedb.SetState(addr, key, value)
+		}
+	}
+	root := statedb.IntermediateRoot(false)
 	head := &types.Header{
 		Number:     new(big.Int).SetUint64(g.Number),
 		Nonce:      types.EncodeNonce(g.Nonce),
@@ -403,27 +418,68 @@ func (g *Genesis) ToBlock() *types.Block {
 	if g.GasLimit == 0 {
 		head.GasLimit = params.GenesisGasLimit
 	}
-	if g.Difficulty == nil && g.Mixhash == (common.Hash{}) {
+	if g.Difficulty == nil {
 		head.Difficulty = params.GenesisDifficulty
 	}
 	if g.Config != nil && g.Config.IsLondon(common.Big0) {
-		if g.Config != nil && g.Config.IsLondon(common.Big0) {
-			if g.BaseFee != nil {
-				head.BaseFee = g.BaseFee
-			} else if g.Config.Scroll.BaseFeeEnabled() {
-				head.BaseFee = new(big.Int).SetUint64(params.InitialBaseFee)
-			} else {
-				head.BaseFee = nil
-			}
+		if g.BaseFee != nil {
+			head.BaseFee = g.BaseFee
+		} else if g.Config.Scroll.BaseFeeEnabled() {
+			head.BaseFee = new(big.Int).SetUint64(params.InitialBaseFee)
+		} else {
+			head.BaseFee = nil
 		}
 	}
+	statedb.Commit(false)
+	statedb.Database().TrieDB().Commit(root, true, nil)
+
 	return types.NewBlock(head, nil, nil, nil, trie.NewStackTrie(nil))
 }
+
+// ToBlock returns the genesis block according to genesis specification.
+//func (g *Genesis) ToBlock() *types.Block {
+//	root, err := g.Alloc.deriveHash()
+//	if err != nil {
+//		panic(err)
+//	}
+//	head := &types.Header{
+//		Number:     new(big.Int).SetUint64(g.Number),
+//		Nonce:      types.EncodeNonce(g.Nonce),
+//		Time:       g.Timestamp,
+//		ParentHash: g.ParentHash,
+//		Extra:      g.ExtraData,
+//		GasLimit:   g.GasLimit,
+//		GasUsed:    g.GasUsed,
+//		BaseFee:    g.BaseFee,
+//		Difficulty: g.Difficulty,
+//		MixDigest:  g.Mixhash,
+//		Coinbase:   g.Coinbase,
+//		Root:       root,
+//	}
+//	if g.GasLimit == 0 {
+//		head.GasLimit = params.GenesisGasLimit
+//	}
+//	if g.Difficulty == nil && g.Mixhash == (common.Hash{}) {
+//		head.Difficulty = params.GenesisDifficulty
+//	}
+//	if g.Config != nil && g.Config.IsLondon(common.Big0) {
+//		if g.Config != nil && g.Config.IsLondon(common.Big0) {
+//			if g.BaseFee != nil {
+//				head.BaseFee = g.BaseFee
+//			} else if g.Config.Scroll.BaseFeeEnabled() {
+//				head.BaseFee = new(big.Int).SetUint64(params.InitialBaseFee)
+//			} else {
+//				head.BaseFee = nil
+//			}
+//		}
+//	}
+//	return types.NewBlock(head, nil, nil, nil, trie.NewStackTrie(nil))
+//}
 
 // Commit writes the block and state of a genesis specification to the database.
 // The block is committed as the canonical head block.
 func (g *Genesis) Commit(db ethdb.Database) (*types.Block, error) {
-	block := g.ToBlock()
+	block := g.ToBlock(db)
 	if block.Number().Sign() != 0 {
 		return nil, errors.New("can't commit genesis block with number > 0")
 	}
@@ -440,9 +496,9 @@ func (g *Genesis) Commit(db ethdb.Database) (*types.Block, error) {
 	// All the checks has passed, flush the states derived from the genesis
 	// specification as well as the specification itself into the provided
 	// database.
-	if err := g.Alloc.flush(db); err != nil {
-		return nil, err
-	}
+	//if err := g.Alloc.flush(db); err != nil {
+	//	return nil, err
+	//}
 	rawdb.WriteTd(db, block.Hash(), block.NumberU64(), block.Difficulty())
 	rawdb.WriteBlock(db, block)
 	rawdb.WriteReceipts(db, block.Hash(), block.NumberU64(), nil)
