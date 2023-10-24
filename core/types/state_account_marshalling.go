@@ -67,7 +67,7 @@ func (s *StateAccount) MarshalFields() ([]zkt.Byte32, uint32) {
 	binary.BigEndian.PutUint64(fields[0][24:], s.Nonce)
 	s.Balance.FillBytes(fields[1][:])
 	copy(fields[2][:], s.Root.Bytes())
-	copy(fields[3][:], s.CodeHash)
+	copy(fields[3][:], s.KeccakCodeHash)
 	copy(fields[4][:], s.PoseidonCodeHash)
 
 	// The returned flag shows which items cannot be encoded as field elements.
@@ -97,8 +97,8 @@ func UnmarshalStateAccount(bytes []byte) (*StateAccount, error) {
 	acc.Root = common.Hash{}
 	acc.Root.SetBytes(bytes[64:96])
 
-	acc.CodeHash = make([]byte, 32)
-	copy(acc.CodeHash, bytes[96:128])
+	acc.KeccakCodeHash = make([]byte, 32)
+	copy(acc.KeccakCodeHash, bytes[96:128])
 
 	acc.PoseidonCodeHash = make([]byte, 32)
 	copy(acc.PoseidonCodeHash, bytes[128:160])

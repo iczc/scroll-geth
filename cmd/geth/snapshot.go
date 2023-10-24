@@ -328,10 +328,10 @@ func traverseState(ctx *cli.Context) error {
 				return storageIter.Err
 			}
 		}
-		if !bytes.Equal(acc.CodeHash, emptyCode) {
-			code := rawdb.ReadCode(chaindb, common.BytesToHash(acc.CodeHash))
+		if !bytes.Equal(acc.KeccakCodeHash, emptyCode) {
+			code := rawdb.ReadCode(chaindb, common.BytesToHash(acc.KeccakCodeHash))
 			if len(code) == 0 {
-				log.Error("Code is missing", "hash", common.BytesToHash(acc.CodeHash))
+				log.Error("Code is missing", "hash", common.BytesToHash(acc.KeccakCodeHash))
 				return errors.New("missing code")
 			}
 			codes += 1
@@ -448,8 +448,8 @@ func traverseRawState(ctx *cli.Context) error {
 					return storageIter.Error()
 				}
 			}
-			if !bytes.Equal(acc.CodeHash, emptyCode) {
-				code := rawdb.ReadCode(chaindb, common.BytesToHash(acc.CodeHash))
+			if !bytes.Equal(acc.KeccakCodeHash, emptyCode) {
+				code := rawdb.ReadCode(chaindb, common.BytesToHash(acc.KeccakCodeHash))
 				if len(code) == 0 {
 					log.Error("Code is missing", "account", common.BytesToHash(accIter.LeafKey()))
 					return errors.New("missing code")

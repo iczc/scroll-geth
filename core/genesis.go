@@ -180,7 +180,21 @@ func SetupGenesisBlockWithOverride(db ethdb.Database, genesis *Genesis, override
 	// We have the genesis block in database(perhaps in ancient database)
 	// but the corresponding state is missing.
 	header := rawdb.ReadHeader(db, stored, 0)
-	if _, err := state.New(header.Root, state.NewDatabaseWithConfig(db, nil), nil); err != nil {
+
+	var trieCfg *trie.Config
+
+	if genesis == nil {
+		storedcfg := rawdb.ReadChainConfig(db, stored)
+		if storedcfg == nil {
+			log.Warn("Found genesis block without chain config")
+		} else {
+			trieCfg = &trie.Config{Zktrie: storedcfg.Scroll.ZktrieEnabled()}
+		}
+	} else {
+		trieCfg = &trie.Config{Zktrie: genesis.Config.Scroll.ZktrieEnabled()}
+	}
+
+	if _, err := state.New(header.Root, state.NewDatabaseWithConfig(db, trieCfg), nil); err != nil {
 		if genesis == nil {
 			genesis = DefaultGenesisBlock()
 		}
@@ -264,7 +278,11 @@ func (g *Genesis) ToBlock(db ethdb.Database) *types.Block {
 	if db == nil {
 		db = rawdb.NewMemoryDatabase()
 	}
-	statedb, err := state.New(common.Hash{}, state.NewDatabase(db), nil)
+	var trieCfg *trie.Config
+	if g.Config != nil {
+		trieCfg = &trie.Config{Zktrie: g.Config.Scroll.ZktrieEnabled()}
+	}
+	statedb, err := state.New(common.Hash{}, state.NewDatabaseWithConfig(db, trieCfg), nil)
 	if err != nil {
 		panic(err)
 	}
@@ -300,8 +318,10 @@ func (g *Genesis) ToBlock(db ethdb.Database) *types.Block {
 	if g.Config != nil && g.Config.IsLondon(common.Big0) {
 		if g.BaseFee != nil {
 			head.BaseFee = g.BaseFee
-		} else {
+		} else if g.Config.Scroll.BaseFeeEnabled() {
 			head.BaseFee = new(big.Int).SetUint64(params.InitialBaseFee)
+		} else {
+			head.BaseFee = nil
 		}
 	}
 	statedb.Commit(false)

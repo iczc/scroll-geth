@@ -20,10 +20,11 @@ package state
 import (
 	"errors"
 	"fmt"
-	zkt "github.com/scroll-tech/zktrie/types"
 	"math/big"
 	"sort"
 	"time"
+
+	zkt "github.com/scroll-tech/zktrie/types"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/rawdb"
@@ -477,7 +478,7 @@ func (s *StateDB) updateStateObject(obj *stateObject) {
 	// enough to track account updates at commit time, deletions need tracking
 	// at transaction boundary level to ensure we capture state clearing.
 	if s.snap != nil {
-		s.snapAccounts[obj.addrHash] = snapshot.SlimAccountRLP(obj.data.Nonce, obj.data.Balance, obj.data.Root, obj.data.CodeHash, obj.data.PoseidonCodeHash, obj.data.CodeSize)
+		s.snapAccounts[obj.addrHash] = snapshot.SlimAccountRLP(obj.data.Nonce, obj.data.Balance, obj.data.Root, obj.data.KeccakCodeHash, obj.data.PoseidonCodeHash, obj.data.CodeSize)
 	}
 }
 
@@ -528,13 +529,13 @@ func (s *StateDB) getDeletedStateObject(addr common.Address) *stateObject {
 			data = &types.StateAccount{
 				Nonce:            acc.Nonce,
 				Balance:          acc.Balance,
-				CodeHash:         acc.CodeHash,
 				Root:             common.BytesToHash(acc.Root),
+				KeccakCodeHash:   acc.CodeHash,
 				PoseidonCodeHash: acc.PoseidonCodeHash,
 				CodeSize:         acc.CodeSize,
 			}
-			if len(data.CodeHash) == 0 {
-				data.CodeHash = emptyCodeHash
+			if len(data.KeccakCodeHash) == 0 {
+				data.KeccakCodeHash = emptyCodeHash
 				data.PoseidonCodeHash = emptyPoseidonCodeHash
 				data.CodeSize = 0
 			}
@@ -563,7 +564,7 @@ func (s *StateDB) getDeletedStateObject(addr common.Address) *stateObject {
 			data = new(types.StateAccount)
 			err = rlp.DecodeBytes(enc, data)
 		}
-		if err := rlp.DecodeBytes(enc, data); err != nil {
+		if err != nil {
 			log.Error("Failed to decode state object", "addr", addr, "err", err)
 			return nil
 		}
