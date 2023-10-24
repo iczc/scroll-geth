@@ -19,6 +19,7 @@ package params
 import (
 	"encoding/binary"
 	"fmt"
+	"github.com/ethereum/go-ethereum/rollup/rcfg"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -27,11 +28,14 @@ import (
 
 // Genesis hashes to enforce below configs on.
 var (
-	MainnetGenesisHash = common.HexToHash("0xd4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3")
-	RopstenGenesisHash = common.HexToHash("0x41941023680923e0fe4d74a34bdac8141f2540e3ae90623718e47d66d1ca4a2d")
-	SepoliaGenesisHash = common.HexToHash("0x25a5cc106eea7138acab33231d7160d69cb777ee0c2c553fcddf5138993e6dd9")
-	RinkebyGenesisHash = common.HexToHash("0x6341fd3daf94b748c72ced5a5b26028f2474f5f00d824504e4fa37a75767e177")
-	GoerliGenesisHash  = common.HexToHash("0xbf7e331f7f7c1dd2e05159666b3bf8bc7a8a3a9eb1d518969eab529dd9b88c1a")
+	MainnetGenesisHash       = common.HexToHash("0xd4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3")
+	RopstenGenesisHash       = common.HexToHash("0x41941023680923e0fe4d74a34bdac8141f2540e3ae90623718e47d66d1ca4a2d")
+	SepoliaGenesisHash       = common.HexToHash("0x25a5cc106eea7138acab33231d7160d69cb777ee0c2c553fcddf5138993e6dd9")
+	RinkebyGenesisHash       = common.HexToHash("0x6341fd3daf94b748c72ced5a5b26028f2474f5f00d824504e4fa37a75767e177")
+	GoerliGenesisHash        = common.HexToHash("0xbf7e331f7f7c1dd2e05159666b3bf8bc7a8a3a9eb1d518969eab529dd9b88c1a")
+	ScrollAlphaGenesisHash   = common.HexToHash("0xa4fc62b9b0643e345bdcebe457b3ae898bef59c7203c3db269200055e037afda")
+	ScrollSepoliaGenesisHash = common.HexToHash("0xaa62d1a8b2bffa9e5d2368b63aae0d98d54928bd713125e3fd9e5c896c68592c")
+	ScrollMainnetGenesisHash = common.HexToHash("0xbbc05efd412b7cd47a2ed0e5ddfcf87af251e414ea4c801d78b6784513180a80")
 )
 
 // TrustedCheckpoints associates each known checkpoint with the genesis hash of
@@ -252,22 +256,161 @@ var (
 		Threshold: 2,
 	}
 
+	// ScrollAlphaChainConfig contains the chain parameters to run a node on the Scroll Alpha test network.
+	ScrollMaxTxPerBlock             = 100
+	ScrollMaxTxPayloadBytesPerBlock = 120 * 1024
+
+	ScrollAlphaChainConfig = &ChainConfig{
+		ChainID:             big.NewInt(534353),
+		HomesteadBlock:      big.NewInt(0),
+		DAOForkBlock:        nil,
+		DAOForkSupport:      true,
+		EIP150Block:         big.NewInt(0),
+		EIP155Block:         big.NewInt(0),
+		EIP158Block:         big.NewInt(0),
+		ByzantiumBlock:      big.NewInt(0),
+		ConstantinopleBlock: big.NewInt(0),
+		PetersburgBlock:     big.NewInt(0),
+		IstanbulBlock:       big.NewInt(0),
+		MuirGlacierBlock:    nil,
+		BerlinBlock:         big.NewInt(0),
+		LondonBlock:         big.NewInt(0),
+		ArrowGlacierBlock:   nil,
+		ArchimedesBlock:     big.NewInt(2646311),
+		ShanghaiBlock:       nil,
+		Clique: &CliqueConfig{
+			Period: 3,
+			Epoch:  30000,
+		},
+		Scroll: ScrollConfig{
+			UseZktrie:                 true,
+			MaxTxPerBlock:             &ScrollMaxTxPerBlock,
+			MaxTxPayloadBytesPerBlock: &ScrollMaxTxPayloadBytesPerBlock,
+			FeeVaultAddress:           &rcfg.ScrollFeeVaultAddress,
+			EnableEIP2718:             false,
+			EnableEIP1559:             false,
+			L1Config: &L1Config{
+				L1ChainId:             5,
+				L1MessageQueueAddress: common.HexToAddress("0x79DB48002Aa861C8cb189cabc21c6B1468BC83BB"),
+				NumL1MessagesPerBlock: 0,
+			},
+		},
+	}
+
+	ScrollSepoliaChainConfig = &ChainConfig{
+		ChainID:             big.NewInt(534351),
+		HomesteadBlock:      big.NewInt(0),
+		DAOForkBlock:        nil,
+		DAOForkSupport:      true,
+		EIP150Block:         big.NewInt(0),
+		EIP155Block:         big.NewInt(0),
+		EIP158Block:         big.NewInt(0),
+		ByzantiumBlock:      big.NewInt(0),
+		ConstantinopleBlock: big.NewInt(0),
+		PetersburgBlock:     big.NewInt(0),
+		IstanbulBlock:       big.NewInt(0),
+		MuirGlacierBlock:    nil,
+		BerlinBlock:         big.NewInt(0),
+		LondonBlock:         big.NewInt(0),
+		ArrowGlacierBlock:   nil,
+		ArchimedesBlock:     big.NewInt(0),
+		ShanghaiBlock:       big.NewInt(0),
+		Clique: &CliqueConfig{
+			Period: 3,
+			Epoch:  30000,
+		},
+		Scroll: ScrollConfig{
+			UseZktrie:                 true,
+			MaxTxPerBlock:             &ScrollMaxTxPerBlock,
+			MaxTxPayloadBytesPerBlock: &ScrollMaxTxPayloadBytesPerBlock,
+			FeeVaultAddress:           &rcfg.ScrollFeeVaultAddress,
+			EnableEIP2718:             false,
+			EnableEIP1559:             false,
+			L1Config: &L1Config{
+				L1ChainId:             11155111,
+				L1MessageQueueAddress: common.HexToAddress("0xF0B2293F5D834eAe920c6974D50957A1732de763"),
+				NumL1MessagesPerBlock: 10,
+			},
+		},
+	}
+
+	ScrollMainnetChainConfig = &ChainConfig{
+		ChainID:             big.NewInt(534352),
+		HomesteadBlock:      big.NewInt(0),
+		DAOForkBlock:        nil,
+		DAOForkSupport:      true,
+		EIP150Block:         big.NewInt(0),
+		EIP155Block:         big.NewInt(0),
+		EIP158Block:         big.NewInt(0),
+		ByzantiumBlock:      big.NewInt(0),
+		ConstantinopleBlock: big.NewInt(0),
+		PetersburgBlock:     big.NewInt(0),
+		IstanbulBlock:       big.NewInt(0),
+		MuirGlacierBlock:    nil,
+		BerlinBlock:         big.NewInt(0),
+		LondonBlock:         big.NewInt(0),
+		ArrowGlacierBlock:   nil,
+		ArchimedesBlock:     big.NewInt(0),
+		ShanghaiBlock:       big.NewInt(0),
+		Clique: &CliqueConfig{
+			Period: 3,
+			Epoch:  30000,
+		},
+		Scroll: ScrollConfig{
+			UseZktrie:                 true,
+			MaxTxPerBlock:             &ScrollMaxTxPerBlock,
+			MaxTxPayloadBytesPerBlock: &ScrollMaxTxPayloadBytesPerBlock,
+			FeeVaultAddress:           &rcfg.ScrollFeeVaultAddress,
+			EnableEIP2718:             false,
+			EnableEIP1559:             false,
+			L1Config: &L1Config{
+				L1ChainId:             1,
+				L1MessageQueueAddress: common.HexToAddress("0x0d7E906BD9cAFa154b048cFa766Cc1E54E39AF9B"),
+				NumL1MessagesPerBlock: 10,
+			},
+		},
+	}
+
 	// AllEthashProtocolChanges contains every protocol change (EIPs) introduced
 	// and accepted by the Ethereum core developers into the Ethash consensus.
 	//
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
-	AllEthashProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, new(EthashConfig), nil}
+	AllEthashProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, big.NewInt(0), nil, nil, new(EthashConfig), nil, ScrollConfig{
+		UseZktrie:                 false,
+		FeeVaultAddress:           nil,
+		EnableEIP2718:             true,
+		EnableEIP1559:             true,
+		MaxTxPerBlock:             nil,
+		MaxTxPayloadBytesPerBlock: nil,
+		L1Config:                  &L1Config{5, common.HexToAddress("0x0000000000000000000000000000000000000000"), 0},
+	}}
 
 	// AllCliqueProtocolChanges contains every protocol change (EIPs) introduced
 	// and accepted by the Ethereum core developers into the Clique consensus.
 	//
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
-	AllCliqueProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, nil, nil, &CliqueConfig{Period: 0, Epoch: 30000}}
+	AllCliqueProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, nil, nil, nil, nil, &CliqueConfig{Period: 0, Epoch: 30000}, ScrollConfig{
+		UseZktrie:                 false,
+		FeeVaultAddress:           nil,
+		EnableEIP2718:             true,
+		EnableEIP1559:             true,
+		MaxTxPerBlock:             nil,
+		MaxTxPayloadBytesPerBlock: nil,
+		L1Config:                  &L1Config{5, common.HexToAddress("0x0000000000000000000000000000000000000000"), 0},
+	}}
 
-	TestChainConfig = &ChainConfig{big.NewInt(1), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, new(EthashConfig), nil}
-	TestRules       = TestChainConfig.Rules(new(big.Int), false)
+	TestChainConfig = &ChainConfig{big.NewInt(1), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, big.NewInt(0), nil, nil, new(EthashConfig), nil, ScrollConfig{
+		UseZktrie:                 false,
+		FeeVaultAddress:           &common.Address{123},
+		EnableEIP2718:             true,
+		EnableEIP1559:             true,
+		MaxTxPerBlock:             nil,
+		MaxTxPayloadBytesPerBlock: nil,
+		L1Config:                  &L1Config{5, common.HexToAddress("0x0000000000000000000000000000000000000000"), 0},
+	}}
+	TestRules = TestChainConfig.Rules(new(big.Int), false)
 )
 
 // TrustedCheckpoint represents a set of post-processed trie roots (CHT and
@@ -347,6 +490,8 @@ type ChainConfig struct {
 	LondonBlock         *big.Int `json:"londonBlock,omitempty"`         // London switch block (nil = no fork, 0 = already on london)
 	ArrowGlacierBlock   *big.Int `json:"arrowGlacierBlock,omitempty"`   // Eip-4345 (bomb delay) switch block (nil = no fork, 0 = already activated)
 	MergeForkBlock      *big.Int `json:"mergeForkBlock,omitempty"`      // EIP-3675 (TheMerge) switch block (nil = no fork, 0 = already in merge proceedings)
+	ArchimedesBlock     *big.Int `json:"archimedesBlock,omitempty"`     // Archimedes switch block (nil = no fork, 0 = already on archimedes)
+	ShanghaiBlock       *big.Int `json:"shanghaiBlock,omitempty"`       // Shanghai switch block (nil = no fork, 0 = already on shanghai)
 
 	// TerminalTotalDifficulty is the amount of total difficulty reached by
 	// the network that triggers the consensus upgrade.
@@ -355,6 +500,90 @@ type ChainConfig struct {
 	// Various consensus engines
 	Ethash *EthashConfig `json:"ethash,omitempty"`
 	Clique *CliqueConfig `json:"clique,omitempty"`
+
+	// Scroll genesis extension: enable scroll rollup-related traces & state transition
+	Scroll ScrollConfig `json:"scroll,omitempty"`
+}
+
+type ScrollConfig struct {
+	// Use zktrie [optional]
+	UseZktrie bool `json:"useZktrie,omitempty"`
+
+	// Maximum number of transactions per block [optional]
+	MaxTxPerBlock *int `json:"maxTxPerBlock,omitempty"`
+
+	// Maximum tx payload size of blocks that we produce [optional]
+	MaxTxPayloadBytesPerBlock *int `json:"maxTxPayloadBytesPerBlock,omitempty"`
+
+	// Transaction fee vault address [optional]
+	FeeVaultAddress *common.Address `json:"feeVaultAddress,omitempty"`
+
+	// Enable EIP-2718 in tx pool [optional]
+	EnableEIP2718 bool `json:"enableEIP2718,omitempty"`
+
+	// Enable EIP-1559 in tx pool, EnableEIP2718 should be true too [optional]
+	EnableEIP1559 bool `json:"enableEIP1559,omitempty"`
+
+	// L1 config
+	L1Config *L1Config `json:"l1Config,omitempty"`
+}
+
+// L1Config contains the l1 parameters needed to collect l1 messages in the sequencer
+type L1Config struct {
+	L1ChainId             uint64         `json:"l1ChainId,string,omitempty"`
+	L1MessageQueueAddress common.Address `json:"l1MessageQueueAddress,omitempty"`
+	NumL1MessagesPerBlock uint64         `json:"numL1MessagesPerBlock,string,omitempty"`
+}
+
+func (c *L1Config) String() string {
+	if c == nil {
+		return "<nil>"
+	}
+
+	return fmt.Sprintf("{l1ChainId: %v, l1MessageQueueAddress: %v, numL1MessagesPerBlock: %v}",
+		c.L1ChainId, c.L1MessageQueueAddress, c.NumL1MessagesPerBlock)
+}
+
+func (s ScrollConfig) BaseFeeEnabled() bool {
+	return s.EnableEIP2718 && s.EnableEIP1559
+}
+
+func (s ScrollConfig) FeeVaultEnabled() bool {
+	return s.FeeVaultAddress != nil
+}
+
+func (s ScrollConfig) ZktrieEnabled() bool {
+	return s.UseZktrie
+}
+
+func (s ScrollConfig) ShouldIncludeL1Messages() bool {
+	return s.L1Config != nil && s.L1Config.NumL1MessagesPerBlock > 0
+}
+
+func (s ScrollConfig) String() string {
+	maxTxPerBlock := "<nil>"
+	if s.MaxTxPerBlock != nil {
+		maxTxPerBlock = fmt.Sprintf("%v", *s.MaxTxPerBlock)
+	}
+
+	maxTxPayloadBytesPerBlock := "<nil>"
+	if s.MaxTxPayloadBytesPerBlock != nil {
+		maxTxPayloadBytesPerBlock = fmt.Sprintf("%v", *s.MaxTxPayloadBytesPerBlock)
+	}
+
+	return fmt.Sprintf("{useZktrie: %v, maxTxPerBlock: %v, MaxTxPayloadBytesPerBlock: %v, feeVaultAddress: %v, enableEIP2718: %v, enableEIP1559: %v, l1Config: %v}",
+		s.UseZktrie, maxTxPerBlock, maxTxPayloadBytesPerBlock, s.FeeVaultAddress, s.EnableEIP2718, s.EnableEIP1559, s.L1Config.String())
+}
+
+// IsValidTxCount returns whether the given block's transaction count is below the limit.
+// This limit corresponds to the number of ECDSA signature checks that we can fit into the zkEVM.
+func (s ScrollConfig) IsValidTxCount(count int) bool {
+	return s.MaxTxPerBlock == nil || count <= *s.MaxTxPerBlock
+}
+
+// IsValidBlockSize returns whether the given block's transaction payload size is below the limit.
+func (s ScrollConfig) IsValidBlockSize(size common.StorageSize) bool {
+	return s.MaxTxPayloadBytesPerBlock == nil || size <= common.StorageSize(*s.MaxTxPayloadBytesPerBlock)
 }
 
 // EthashConfig is the consensus engine configs for proof-of-work based sealing.
@@ -387,7 +616,7 @@ func (c *ChainConfig) String() string {
 	default:
 		engine = "unknown"
 	}
-	return fmt.Sprintf("{ChainID: %v Homestead: %v DAO: %v DAOSupport: %v EIP150: %v EIP155: %v EIP158: %v Byzantium: %v Constantinople: %v Petersburg: %v Istanbul: %v, Muir Glacier: %v, Berlin: %v, London: %v, Arrow Glacier: %v, MergeFork: %v, Engine: %v}",
+	return fmt.Sprintf("{ChainID: %v Homestead: %v DAO: %v DAOSupport: %v EIP150: %v EIP155: %v EIP158: %v Byzantium: %v Constantinople: %v Petersburg: %v Istanbul: %v, Muir Glacier: %v, Berlin: %v, London: %v, Arrow Glacier: %v, MergeFork: %v,  Archimedes: %v, Shanghai: %v, Engine: %v, Scroll config: %v}",
 		c.ChainID,
 		c.HomesteadBlock,
 		c.DAOForkBlock,
@@ -404,7 +633,10 @@ func (c *ChainConfig) String() string {
 		c.LondonBlock,
 		c.ArrowGlacierBlock,
 		c.MergeForkBlock,
+		c.ArchimedesBlock,
+		c.ShanghaiBlock,
 		engine,
+		c.Scroll,
 	)
 }
 
@@ -475,6 +707,16 @@ func (c *ChainConfig) IsArrowGlacier(num *big.Int) bool {
 	return isForked(c.ArrowGlacierBlock, num)
 }
 
+// IsArchimedes returns whether num is either equal to the Archimedes fork block or greater.
+func (c *ChainConfig) IsArchimedes(num *big.Int) bool {
+	return isForked(c.ArchimedesBlock, num)
+}
+
+// IsShanghai returns whether num is either equal to the Shanghai fork block or greater.
+func (c *ChainConfig) IsShanghai(num *big.Int) bool {
+	return isForked(c.ShanghaiBlock, num)
+}
+
 // IsTerminalPoWBlock returns whether the given block is the last block of PoW stage.
 func (c *ChainConfig) IsTerminalPoWBlock(parentTotalDiff *big.Int, totalDiff *big.Int) bool {
 	if c.TerminalTotalDifficulty == nil {
@@ -525,6 +767,8 @@ func (c *ChainConfig) CheckConfigForkOrder() error {
 		{name: "londonBlock", block: c.LondonBlock},
 		{name: "arrowGlacierBlock", block: c.ArrowGlacierBlock, optional: true},
 		{name: "mergeStartBlock", block: c.MergeForkBlock, optional: true},
+		{name: "archimedesBlock", block: c.ArchimedesBlock, optional: true},
+		{name: "shanghaiBlock", block: c.ShanghaiBlock, optional: true},
 	} {
 		if lastFork.name != "" {
 			// Next one must be higher number
@@ -600,6 +844,12 @@ func (c *ChainConfig) checkCompatible(newcfg *ChainConfig, head *big.Int) *Confi
 	if isForkIncompatible(c.MergeForkBlock, newcfg.MergeForkBlock, head) {
 		return newCompatError("Merge Start fork block", c.MergeForkBlock, newcfg.MergeForkBlock)
 	}
+	if isForkIncompatible(c.ArchimedesBlock, newcfg.ArchimedesBlock, head) {
+		return newCompatError("Archimedes fork block", c.ArchimedesBlock, newcfg.ArchimedesBlock)
+	}
+	if isForkIncompatible(c.ShanghaiBlock, newcfg.ShanghaiBlock, head) {
+		return newCompatError("Shanghai fork block", c.ShanghaiBlock, newcfg.ShanghaiBlock)
+	}
 	return nil
 }
 
@@ -667,7 +917,7 @@ type Rules struct {
 	ChainID                                                 *big.Int
 	IsHomestead, IsEIP150, IsEIP155, IsEIP158               bool
 	IsByzantium, IsConstantinople, IsPetersburg, IsIstanbul bool
-	IsBerlin, IsLondon                                      bool
+	IsBerlin, IsLondon, IsArchimedes, IsShanghai            bool
 	IsMerge                                                 bool
 }
 
@@ -690,5 +940,7 @@ func (c *ChainConfig) Rules(num *big.Int, isMerge bool) Rules {
 		IsBerlin:         c.IsBerlin(num),
 		IsLondon:         c.IsLondon(num),
 		IsMerge:          isMerge,
+		IsArchimedes:     c.IsArchimedes(num),
+		IsShanghai:       c.IsShanghai(num),
 	}
 }
