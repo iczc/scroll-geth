@@ -31,6 +31,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/metrics"
+	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/trie"
 )
@@ -985,7 +986,7 @@ func (s *StateDB) Commit(deleteEmptyObjects bool) (common.Hash, error) {
 }
 
 // PrepareAccessList handles the preparatory steps for executing a state transition with
-// regards to both EIP-2929 and EIP-2930:
+// regards to EIP-2929, EIP-2930 and EIP-3651:
 //
 // - Add sender to access list (2929)
 // - Add destination to access list (2929)
@@ -993,7 +994,7 @@ func (s *StateDB) Commit(deleteEmptyObjects bool) (common.Hash, error) {
 // - Add the contents of the optional tx access list (2930)
 //
 // This method should only be called if Berlin/2929+2930 is applicable at the current number.
-func (s *StateDB) PrepareAccessList(sender common.Address, dst *common.Address, precompiles []common.Address, list types.AccessList) {
+func (s *StateDB) PrepareAccessList(rules params.Rules, sender, coinbase common.Address, dst *common.Address, precompiles []common.Address, list types.AccessList) {
 	s.AddAddressToAccessList(sender)
 	if dst != nil {
 		s.AddAddressToAccessList(*dst)
@@ -1007,6 +1008,9 @@ func (s *StateDB) PrepareAccessList(sender common.Address, dst *common.Address, 
 		for _, key := range el.StorageKeys {
 			s.AddSlotToAccessList(el.Address, key)
 		}
+	}
+	if rules.IsShanghai { // EIP-3651: warm coinbase
+		s.AddAddressToAccessList(coinbase)
 	}
 }
 
